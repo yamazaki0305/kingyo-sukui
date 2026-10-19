@@ -58,6 +58,7 @@ html,body{margin:0;height:100%;background:#e6dcc2;overflow:hidden;overscroll-beh
 .screen.on{display:flex;animation:fade .25s}
 .btn{border:0;background:var(--pink);color:#fff;font:inherit;font-size:1.9em;padding:.4em 1.7em;border-radius:2em;
   box-shadow:0 .14em 0 #c42e5a,0 .3em .5em rgba(0,0,0,.25);cursor:pointer}
+.btn.sub{background:#3a8ad8;font-size:1.3em;margin-top:.7em;box-shadow:0 .14em 0 #2a68a8,0 .3em .5em rgba(0,0,0,.25)}
 .btn:active{transform:translateY(.1em);box-shadow:0 .04em 0 #c42e5a}
 .link{color:#fff;font-size:1.2em;text-decoration:underline;margin-top:1.2em;cursor:pointer;padding:.4em}
 
@@ -153,10 +154,12 @@ html,body{margin:0;height:100%;background:#e6dcc2;overflow:hidden;overscroll-beh
     <div class="rbest" id="rBest"></div>
     <div class="rlist" id="rList"></div>
     <button class="btn" id="btnRetry">もう一度</button>
+    <button class="btn sub" id="btnSend">スコアをおくる</button>
     <a class="link" id="btnTitle">タイトルへ</a>
   </div>
 </div>
 
+<script src="score.js"></script>
 <script>
 (()=>{
 'use strict';
@@ -729,8 +732,11 @@ $('#catch').addEventListener('pointerdown',()=>{
   sfx.tap();poi.hold=null;show(null);settle();
 });
 
+let lastResult=null;
 function showResult(){
   state='result';
+  lastResult={score,playSeconds:Math.round(GAME_TIME-Math.max(0,time)),poiLeft:Math.max(0,lives),
+    catches:caught.map(c=>{const K=info(c.kind,c.v);return {species:c.v?c.v.id:c.kind,name:K.name,size:{small:'S',medium:'M',large:'L'}[c.kind],weightGrams:c.g,points:c.pts,artist:K.artist||null}})};
   $('#rScore').textContent=score;
   const top=caught.slice().sort((a,b)=>b.g-a.g)[0];
   $('#rTop').textContent=top?`いちばんの大物：${info(top.kind,top.v).name}（${fmtW(top.g)}）`:'ざんねん… 1ぴきも すくえなかった';
@@ -749,6 +755,7 @@ function toTitle(){
 $('#btnStart').addEventListener('click',startGame);
 $('#btnRetry').addEventListener('click',startGame);
 $('#btnTitle').addEventListener('click',toTitle);
+$('#btnSend').addEventListener('click',()=>{if(!lastResult)return;sfx.tap();KingyoScore.submit(KingyoScore.build(lastResult))});
 
 /* ---------- 入力 ---------- */
 let drag=null;

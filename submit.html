@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#c8202c">
+<title>スコアそうしん</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Yusei+Magic&display=swap" rel="stylesheet">
+<style>
+:root{--paper:#f7f0de;--ink:#3a2a20;--pink:#ff4f81;--blue:#3a8ad8}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:#e6dcc2;color:var(--ink);
+  font-family:"Yusei Magic","Hiragino Maru Gothic ProN","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif}
+body{display:flex;justify-content:center}
+.page{width:100%;max-width:560px;min-height:100vh;background:var(--paper);padding:0 0 3em;position:relative;
+  background-image:radial-gradient(circle at 15% 0%,rgba(111,200,240,.55),rgba(111,200,240,0) 45%),radial-gradient(circle at 90% 18%,rgba(255,196,214,.55),rgba(255,196,214,0) 35%)}
+.band{height:1.1em;background:#d4222c;box-shadow:0 .25em 0 #a8121f}
+.wrap{padding:1.2em 1em 0}
+h1{font-size:1.9em;font-weight:400;margin:.2em 0 .1em;text-align:center}
+.demo{display:block;width:fit-content;margin:.2em auto .8em;font-size:.95em;color:#fff;background:#e8822a;padding:.1em .9em;border-radius:1em .7em 1em .6em;transform:rotate(-2deg)}
+.note{text-align:center;font-size:.95em;line-height:1.6;margin:0 0 1em}
+.score{text-align:center;margin:.2em 0 .6em}
+.score span{font-size:4.6em;line-height:1;color:#e8503a;-webkit-text-stroke:.06em #fff8e8;paint-order:stroke fill}
+.score small{font-size:1.5em;color:#e8503a}
+.tabs{display:flex;gap:.5em;margin:.6em 0 0}
+.tab{flex:1;font:inherit;font-size:1.05em;padding:.5em;border:.15em solid var(--blue);border-bottom:0;border-radius:.8em .8em 0 0;background:#e0f3fd;color:var(--blue);cursor:pointer}
+.tab[aria-selected="true"]{background:#fff;color:var(--ink)}
+.panel{border:.15em solid var(--blue);border-radius:0 0 .8em .8em;background:#fff;padding:.8em;min-height:12em}
+.panel[hidden]{display:none}
+table{width:100%;border-collapse:collapse;font-size:1em}
+th,td{padding:.45em .3em;border-bottom:1px dashed #cdbf9f;text-align:left}
+th{color:#7a6a5a;font-weight:400;font-size:.9em}
+td.r,th.r{text-align:right}
+.sum td:first-child{color:#7a6a5a;width:46%}
+h2{font-size:1.05em;font-weight:400;margin:1em 0 .2em;color:#7a6a5a}
+pre{margin:0;max-height:26em;overflow:auto;font:13px/1.55 ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+  background:#2a2a36;color:#e8e8f0;padding:.9em;border-radius:.6em;white-space:pre;-webkit-user-select:text;user-select:text}
+pre .k{color:#8fd0ff}pre .s{color:#ffd58a}pre .n{color:#b8f0a0}pre .b{color:#ff9ab8}
+.row{display:flex;flex-wrap:wrap;gap:.6em;margin-top:1em}
+.btn{flex:1 1 40%;border:0;font:inherit;font-size:1.2em;padding:.6em .8em;border-radius:2em;color:#fff;background:var(--pink);
+  box-shadow:0 .14em 0 #c42e5a,0 .3em .5em rgba(0,0,0,.2);cursor:pointer;text-align:center;text-decoration:none;display:block}
+.btn.blue{background:var(--blue);box-shadow:0 .14em 0 #2a68a8,0 .3em .5em rgba(0,0,0,.2)}
+.btn.wide{flex-basis:100%;background:#f2c030;color:var(--ink);box-shadow:0 .14em 0 #c49410,0 .3em .5em rgba(0,0,0,.2)}
+.btn:active{transform:translateY(.1em)}
+.toast{position:fixed;left:50%;bottom:1.5em;transform:translate(-50%,2em);background:rgba(58,42,32,.92);color:#fff;padding:.6em 1.3em;border-radius:2em;opacity:0;transition:all .25s;pointer-events:none}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+.empty{text-align:center;padding:3em 1em}
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="band"></div>
+  <div class="wrap" id="app"></div>
+</div>
+<div class="toast" id="toast"></div>
+<script src="score.js"></script>
+<script>
+(()=>{
+const $=s=>document.querySelector(s);
+const esc=s=>String(s).replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+const fmtW=g=>g<1000?g+'g':(g/1000).toFixed(1)+'kg';
+const app=$('#app');
+const data=KingyoScore.load();
+
+if(!data){
+  app.innerHTML='<div class="empty"><h1>データが ありません</h1><p class="note">ゲームの けっか画面から<br>「スコアをおくる」を おしてね</p><div class="row"><a class="btn" href="index.html">ゲームへ</a></div></div>';
+  return;
+}
+const {payload,result}=data;
+const json=JSON.stringify(payload,null,2);
+const hl=esc(json).replace(/("(?:\\.|[^"\\])*")(\s*:)?|\b(true|false|null)\b|(-?\d+(?:\.\d+)?)/g,(m,str,colon,bool,num)=>{
+  if(str)return colon?`<span class="k">${str}</span>${colon}`:`<span class="s">${str}</span>`;
+  if(bool)return `<span class="b">${bool}</span>`;
+  return `<span class="n">${num}</span>`;
+});
+const rows=payload.catches.length
+  ?payload.catches.map(c=>`<tr><td>${esc(c.name)} <small>(${c.size})</small></td><td class="r">${fmtW(c.weightGrams)}</td><td class="r">${c.points}点</td></tr>`).join('')
+  :'<tr><td colspan="3" style="text-align:center;color:#7a6a5a">つれた さかなは いません</td></tr>';
+const when=new Date(payload.playedAt).toLocaleString('ja-JP');
+const status=result&&result.demo?'デモなので、じっさいには サーバーへ おくっていません':(result&&result.ok?'サーバーへ そうしん しました':'そうしんに しっぱいしました');
+
+app.innerHTML=`
+  <h1>スコアを おくりました</h1>
+  <span class="demo">デモ</span>
+  <p class="note">${esc(status)}<br>おくった データは したの とおりです</p>
+  <div class="score"><span>${payload.score}</span><small>点</small></div>
+  <div class="tabs" role="tablist">
+    <button class="tab" role="tab" aria-selected="true" data-t="view">ひょうで みる</button>
+    <button class="tab" role="tab" aria-selected="false" data-t="json">JSON</button>
+  </div>
+  <div class="panel" id="p-view">
+    <table class="sum">
+      <tr><td>ゲーム</td><td>${esc(payload.game)} v${esc(payload.version)}</td></tr>
+      <tr><td>あそんだ日時</td><td>${esc(when)}</td></tr>
+      <tr><td>プレイ時間</td><td>${payload.playSeconds}びょう</td></tr>
+      <tr><td>のこりポイ</td><td>${payload.poiLeft}こ</td></tr>
+      <tr><td>つれた数</td><td>${payload.totalCaught}ひき</td></tr>
+      <tr><td>いちばんの大物</td><td>${payload.biggest?esc(payload.biggest.name)+'（'+fmtW(payload.biggest.weightGrams)+'）':'-'}</td></tr>
+    </table>
+    <h2>つれた さかな</h2>
+    <table><tr><th>なまえ</th><th class="r">おもさ</th><th class="r">てん</th></tr>${rows}</table>
+  </div>
+  <div class="panel" id="p-json" hidden><pre id="json">${hl}</pre></div>
+  <div class="row">
+    <button class="btn" id="copy">JSONを コピー</button>
+    <button class="btn blue" id="save">ファイルにほぞん</button>
+    <a class="btn wide" href="index.html">もういちど あそぶ</a>
+  </div>`;
+
+document.querySelectorAll('.tab').forEach(b=>b.addEventListener('click',()=>{
+  document.querySelectorAll('.tab').forEach(t=>t.setAttribute('aria-selected',t===b));
+  $('#p-view').hidden=b.dataset.t!=='view';$('#p-json').hidden=b.dataset.t!=='json';
+}));
+
+function toast(msg){const t=$('#toast');t.textContent=msg;t.classList.add('on');clearTimeout(toast.t);toast.t=setTimeout(()=>t.classList.remove('on'),1800)}
+async function copy(){
+  try{await navigator.clipboard.writeText(json);return true}catch(e){}
+  const ta=document.createElement('textarea');ta.value=json;ta.style.cssText='position:fixed;opacity:0';
+  document.body.appendChild(ta);ta.select();let ok=false;
+  try{ok=document.execCommand('copy')}catch(e){}
+  ta.remove();return ok;
+}
+$('#copy').addEventListener('click',async()=>{toast(await copy()?'コピーしました！':'コピーできませんでした（JSONタブから えらんでね）')});
+$('#save').addEventListener('click',()=>{
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([json],{type:'application/json'}));
+  a.download='kingyo-score-'+payload.playedAt.replace(/[:.]/g,'-')+'.json';
+  document.body.appendChild(a);a.click();a.remove();toast('ほぞんしました');
+});
+})();
+</script>
+</body>
+</html>
